@@ -1,0 +1,24 @@
+# Python
+python==3.10.18
+
+# VLM package
+torch>=2.5.0
+torchvision>=0.20.0
+torchaudio>=2.5.0
+transformers>=4.53.0
+accelerate>=1.8.0
+safetensors>=0.5.0
+peft>=0.15.0  # if use PEFT fine-tuning
+
+# dataset
+datasets>=3.6.0
+huggingface-hub>=0.33.0
+einops>=0.8.0
+sentencepiece>=0.2.0
+opencv-python>=4.11.0
+
+# tools
+tqdm>=4.66.0
+pandas>=2.3.0
+numpy>=2.1.0
+imageio>=2.37.0
