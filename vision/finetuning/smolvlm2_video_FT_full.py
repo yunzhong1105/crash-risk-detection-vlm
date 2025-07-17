@@ -326,7 +326,7 @@ if __name__ == "__main__" :
         # output_dir=f"./{model_name}-video-feedback",
         # hub_model_id=f"{model_name}-video-feedback",
         # output_dir=f"./0713_{model_name}-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)",
-        output_dir=f"program_test",
+        output_dir=f"./program_test",
         hub_model_id=f"{model_name}-taisc",
         remove_unused_columns=False,
         report_to="tensorboard",
