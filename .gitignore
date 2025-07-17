@@ -173,12 +173,14 @@ cython_debug/
 earlier version model/
 flash-attention/
 strategy3 model/
+program_test/
 
 # tool program
 eventsAnalysis.ipynb
 *.whl
 img2mp4.py
 original_README.md
+unittest.bat
 
 # early version code
 vision/finetuning/claude_v11.py

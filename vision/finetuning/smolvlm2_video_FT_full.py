@@ -13,42 +13,51 @@ import argparse
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 def parse_args():
+    '''
+    Args:
+        dataset (str, ["freeway", "road"]):
+            Input dataset name.
+        epoch (int):
+            Set trianing epoch.
+        freeze_vision (bool):
+            Set True if you wanna freeze vision_model layer.
+        freeze_text (bool):
+            Set True if you wanna freeze text_model layer.
+        classifier (str, ["easy", "medium"]):
+            Choose complexity of classifier.
+        output_dir (str):
+            Path to output destination.
+    '''
     parser = argparse.ArgumentParser(description="Dataset fine-tune script")
-    parser.add_argument("--is-val", type=bool, help="use val dataset")
+    # parser.add_argument("--is-val", type=bool, help="use val dataset")
     parser.add_argument("--dataset", type=str, required=True, help="Path to the dataset directory")
     parser.add_argument("--epoch", type=int, default=3, required=True, help="fine-tune epoch number")
     parser.add_argument("--freeze-vision", type=bool, default=False, help="Whether freeze the vision_model layer")
     parser.add_argument("--freeze-text", type=bool, default=False, help="Whether freeze the text_model layer")
-    parser.add_argument("--classifier", type=str, default="easy", help="Choose the classifier complexity")
+    parser.add_argument("--classifier-type", type=str, default="medium", help="Choose the classifier complexity")
+    parser.add_argument("--output-dir", type=str, default="./", help="Set output dir")
     return parser.parse_args()
 
 ##########----------SmolVLMWithClassifier version 1----------##########
 
 class SmolVLMWithClassifier(nn.Module):
-    def __init__(self, model_id , args):
+    def __init__(self, model_id):
         super().__init__()
         self.base_model = AutoModelForImageTextToText.from_pretrained(
             model_id,
             torch_dtype=torch.bfloat16,
         )
-        self.args = args
-        
-        # ➤ 部分參數凍結策略：只微調 text decoder + classifier
-        if self.args.freeze_vision :
-            for name, param in self.base_model.named_parameters():
-                if "vision_model" in name:
-                    param.requires_grad = False  # 凍結 vision encoder
-            
-        if self.args.freeze_text :
-            for name, param in self.base_model.named_parameters():
-                if "text_model" in name:
-                    param.requires_grad = False  # 凍結 text encoder
-        
-        # classifier
+        self.classifier = None
+        self.classifier_type = None
+
+        # 預設為 "medium"
+        self.set_classifier("medium")
+    
+    def set_classifier(self, classifier_type="medium") :
         H = self.base_model.config.text_config.hidden_size
-        if self.args.classifier == "easy" :
+        if classifier_type == "easy" :
             self.classifier = nn.Linear(H, 1).to(torch.bfloat16)  # binary classification
-        elif self.args.classifier == "medium" :
+        elif classifier_type == "medium" :
             self.classifier = nn.Sequential(
                 nn.Linear(H, 256),
                 nn.ReLU(),
@@ -199,6 +208,13 @@ if __name__ == "__main__" :
     SMOL = True
     
     args = parse_args()
+    # from pprint import pprint
+    # print("========== Parsed Arguments ==========")
+    # for k, v in vars(args).items():
+    #     print(f"{k:<20}: {v}")
+    # print("======================================")
+    
+    # assert False
 
     model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct" if SMOL else "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
 
@@ -237,8 +253,18 @@ if __name__ == "__main__" :
         model = get_peft_model(model, lora_config)
         print(model.get_nb_trainable_parameters())
     else:
-        # model = SmolVLMWithClassifier(model_id).to("cuda") # original
-        model = SmolVLMWithClassifier(model_id , args).to("cuda")
+        model = SmolVLMWithClassifier(model_id).to("cuda")
+        # model.set_classifier("easy")
+        # ➤ 部分參數凍結策略：只微調 text decoder + classifier
+        if args.freeze_vision :
+            for name, param in model.named_parameters():
+                if "vision_model" in name:
+                    param.requires_grad = False  # 凍結 vision encoder
+            
+        if args.freeze_text :
+            for name, param in model.named_parameters():
+                if "text_model" in name:
+                    param.requires_grad = False  # 凍結 text encoder
         
         # model = AutoModelForImageTextToText.from_pretrained(
         #     model_id,
@@ -299,7 +325,8 @@ if __name__ == "__main__" :
         bf16=True,
         # output_dir=f"./{model_name}-video-feedback",
         # hub_model_id=f"{model_name}-video-feedback",
-        output_dir=f"./0713_{model_name}-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)",
+        # output_dir=f"./0713_{model_name}-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)",
+        output_dir=f"program_test",
         hub_model_id=f"{model_name}-taisc",
         remove_unused_columns=False,
         report_to="tensorboard",
