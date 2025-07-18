@@ -68,6 +68,7 @@ Example:
 ```jsonl
 {"video": "video1.mp4", "text": "Is a vehicle collision likely to happen within 1 to 2 seconds?(0: No, 1: Yes)", "label": 1}
 {"video": "video2.mp4", "text": "Is a vehicle collision likely to happen within 1 to 2 seconds?(0: No, 1: Yes)", "label": 0}
+...
 ```
 
 ### 📁 Folder Structure
@@ -77,7 +78,8 @@ Dataset/
 ├── dataset_script.py
 ├── train/
 │   ├── video1.mp4
-│   └── video2.mp4
+│   ├── video2.mp4
+│   └── ...
 ├── val/
 ├── test/
 ├── train.jsonl
@@ -120,7 +122,7 @@ After training, you can run inference on test videos to get predictions:
 
 **Option 1: Manual Command**
 ```bash
-python vision/finetuning/smolvlm2_video_FT_strategy3.py --dataset freeway --epoch 3
+python vision/finetuning/custom_infer.py --dataset freeway --epoch 3
 ```
 
 > 💡 Note: This command automatically switches to inference mode after training if the epoch count matches a checkpoint.
