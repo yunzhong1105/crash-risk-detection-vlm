@@ -4,10 +4,13 @@ import pandas as pd
 from safetensors.torch import load_file
 from transformers import AutoProcessor
 # from smolvlm2_video_FT_clean import SmolVLMWithClassifier, get_latest_checkpoint # original
-from smolvlm2_video_FT_strategy3 import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
+# from smolvlm2_video_FT_strategy3 import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
+from smolvlm2_video_FT_full import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
 from tqdm import tqdm
 import argparse
 import datetime
+
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Dataset inference script")
@@ -20,7 +23,8 @@ args = parse_args()
 
 
 # 0711
-model_path = get_latest_checkpoint(f"C:\\Python_workspace\\TAISC\\code\\smollm-main\\0713_SmolVLM2-500M-Video-Instruct-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)") # original
+model_path = get_latest_checkpoint(args.model_path)
+# model_path = get_latest_checkpoint(f"C:\\Python_workspace\\TAISC\\code\\smollm-main\\0713_SmolVLM2-500M-Video-Instruct-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)") # original
 # model_path = "C:\\Python_workspace\\TAISC\\code\\smollm-main\\strategy3 model\\SmolVLM2-500M-Video-Instruct-taisc(latest-cls-strategy3-3epoch)\\checkpoint-36" # strategy3
 # model_path = "C:\\Python_workspace\\TAISC\\code\\smollm-main\\SmolVLM2-500M-Video-Instruct-taisc(latest-cls-strategy3-2epoch-complete)-road\\checkpoint-46" # strategy3
 
@@ -37,7 +41,7 @@ video_folder = f"C:\\Python_workspace\\TAISC\\dataset\\{args.dataset}_video\\smo
 
 # 0711
 # output_csv = "{}_infer_results_{}.csv".format(args.dataset , str(datetime.datetime.now())[11:19].replace(":" , "-"))
-output_csv = "0713_strategy3_{}_{}epoch_infer_results_{}.csv".format(args.dataset , args.epoch , str(datetime.datetime.now())[11:19].replace(":" , "-"))
+output_csv = ".\\program_test\\full_{}_{}epoch_infer_results_{}.csv".format(args.dataset , args.epoch , str(datetime.datetime.now())[11:19].replace(":" , "-"))
 text_prompt = "Is a vehicle collision likely to happen within 1 to 2 seconds?(0: No, 1: Yes)"
 
 # === 模型初始化並讀取權重 ===

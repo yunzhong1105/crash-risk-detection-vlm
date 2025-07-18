@@ -99,7 +99,7 @@ def build_collate_fn(video_base_path, processor, image_token_id):
 
             # split train(50/50) to try model
             # video_path = os.path.join(f"C:\\Python_workspace\\TAISC\\dataset\\{video_base_path}_sample_val_video\\smolvlm2\\train", example["video"])
-            video_path = os.path.join(f"C:\\Python_workspace\\TAISC\\dataset\\{video_base_path}_sample_val_video\\smolvlm2\\train", example["video"])
+            video_path = os.path.join(f"C:\\Python_workspace\\TAISC\\dataset\\{video_base_path}_sample_video\\smolvlm2\\train", example["video"])
 
             user_content = [
                 {"type": "text", "text": prompt},
@@ -280,9 +280,9 @@ if __name__ == "__main__" :
     print(f"The model as is is holding: {peak_mem / 1024**3:.2f} of GPU RAM")
 
     smolvlm2 = load_dataset(
-        path = f"C:\\Python_workspace\\TAISC\\dataset\\{args.dataset}_sample_val_video\\smolvlm2\\dataset_script.py" , 
+        path = f"C:\\Python_workspace\\TAISC\\dataset\\{args.dataset}_sample_video\\smolvlm2\\dataset_script.py" , 
         name = "smolvlm2" , 
-        data_dir = f"C:\\Python_workspace\\TAISC\\dataset\\{args.dataset}_sample_val_video\\smolvlm2" , 
+        data_dir = f"C:\\Python_workspace\\TAISC\\dataset\\{args.dataset}_sample_video\\smolvlm2" , 
         trust_remote_code = True
     )
    
