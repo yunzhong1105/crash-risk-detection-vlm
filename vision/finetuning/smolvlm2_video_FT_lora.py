@@ -9,14 +9,45 @@ from transformers import TrainingArguments, Trainer
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import argparse
+from safetensors.torch import save_file
+from pathlib import Path
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 class SmolVLMWithClassifier(nn.Module):
-    def __init__(self, model_id=None , base_model=None):
+    def __init__(self, model_id=None , USE_QLORA=False , infer=False):
         super().__init__()
-        if base_model is not None :
-            self.base_model = base_model
+        
+        if USE_QLORA :
+            lora_config = LoraConfig(
+                r=4,
+                lora_alpha=16,
+                lora_dropout=0.05,
+                target_modules=['down_proj','o_proj','k_proj','q_proj','gate_proj','up_proj','v_proj'],
+                use_dora=False if USE_QLORA else True,
+                init_lora_weights="gaussian"
+            )
+            
+            lora_config.inference_mode = infer
+
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16
+            )
+            
+            self.base_model = AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            quantization_config=bnb_config if USE_QLORA else None,
+            device_map="auto"
+            )
+            self.base_model = prepare_model_for_kbit_training(self.base_model)
+            self.base_model = get_peft_model(self.base_model, lora_config)
+            self.peft_config = getattr(self.base_model, "peft_config", None) # make Trainer recognize peft model
+            print(self.base_model.get_nb_trainable_parameters())
+            
+            
         else :
             self.base_model = AutoModelForImageTextToText.from_pretrained(
                 model_id,
@@ -49,7 +80,7 @@ class SmolVLMWithClassifier(nn.Module):
             return_dict=True,
         )
         last_hidden = output.hidden_states[-1]  # shape: [B, T, H]
-        cls_token = last_hidden[:, -1, :]  # shape: [B, H]
+        cls_token = last_hidden[:, -1, :].to(torch.bfloat16)  # shape: [B, H]
         logits = self.classifier(cls_token)  # shape: [B, 1]
         return logits.squeeze(-1)
 
@@ -97,7 +128,6 @@ def build_collate_fn(video_base_path, processor, image_token_id):
                 prompt = prompt[:200]
 
             # split train(50/50) to try model
-            # video_path = os.path.join(f"C:\\Python_workspace\\TAISC\\dataset\\{video_base_path}_sample_val_video\\smolvlm2\\train", example["video"])
             video_path = os.path.join(f"C:\\Python_workspace\\TAISC\\dataset\\{video_base_path}_sample_video\\smolvlm2\\train", example["video"])
 
             user_content = [
@@ -211,60 +241,10 @@ if __name__ == "__main__" :
 
     processor = AutoProcessor.from_pretrained(
         model_id,
-        # image_processor={"size": {"shortest_edge": 160}}
     )
 
     if USE_QLORA or USE_LORA:
-        lora_config = LoraConfig(
-            # r=8,
-            # lora_alpha=8,
-            # lora_dropout=0.1,
-            r=4,
-            lora_alpha=16,
-            lora_dropout=0.05,
-            target_modules=['down_proj','o_proj','k_proj','q_proj','gate_proj','up_proj','v_proj'],
-            use_dora=False if USE_QLORA else True,
-            init_lora_weights="gaussian"
-        )
-        lora_config.inference_mode = False
-        if USE_QLORA:
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.bfloat16
-            )
-
-        # model = AutoModelForImageTextToText.from_pretrained(
-        #     model_id,
-        #     quantization_config=bnb_config if USE_QLORA else None,
-        #     # _attn_implementation="flash_attention_2",
-        #     device_map="auto"
-        # )
-        # # model.add_adapter(lora_config)
-        # # model.enable_adapters()
-        # model = prepare_model_for_kbit_training(model)
-        # model = get_peft_model(model, lora_config)
-        # print(model.get_nb_trainable_parameters())
-        
-        
-        # 0728
-        base_model = AutoModelForImageTextToText.from_pretrained(
-            model_id,
-            quantization_config=bnb_config if USE_QLORA else None,
-            device_map="auto"
-        )
-
-        # 2. Prepare model for QLoRA training
-        base_model = prepare_model_for_kbit_training(base_model)
-        base_model = get_peft_model(base_model, lora_config)
-        print(base_model.get_nb_trainable_parameters())
-
-        # 3. Wrap into classifier model
-        model = SmolVLMWithClassifier(base_model=base_model)  # 跳過from_pretrained
-        model.base_model = base_model
-        model.set_classifier(args.classifier_type)
-
+        model = SmolVLMWithClassifier(model_id=model_id, USE_QLORA=USE_QLORA)  # 跳過from_pretrained
 
     peak_mem = torch.cuda.max_memory_allocated()
     print(f"The model as is is holding: {peak_mem / 1024**3:.2f} of GPU RAM")
@@ -278,10 +258,8 @@ if __name__ == "__main__" :
    
     train_smolvlm2 = smolvlm2["train"]
 
-    split_smolvlm2 = smolvlm2["train"].train_test_split(test_size=0.5)
+    split_smolvlm2 = smolvlm2["train"].train_test_split(test_size=0.25)
     train_smolvlm2 = split_smolvlm2["train"]
-    # 0710
-    # eval_smolvlm2 = split_smolvlm2["test"]
 
     del split_smolvlm2, smolvlm2
 
@@ -303,20 +281,14 @@ if __name__ == "__main__" :
         per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
         warmup_steps=50,
-        # learning_rate=1e-4,
         learning_rate=1e-5,
         weight_decay=0.01,
         logging_steps=5,
         save_strategy="steps",
         save_steps=250,
         save_total_limit=1,
-        # optim="adamw_hf", # for 8-bit, keep paged_adamw_8bit, else adamw_hf
         optim="adamw_torch",
-        # fp16=True,
         bf16=True,
-        # output_dir=f"./{model_name}-video-feedback",
-        # hub_model_id=f"{model_name}-video-feedback",
-        # output_dir=f"./0713_{model_name}-taisc(strategy3-{args.dataset}-{args.epoch}epoch-complete)",
         output_dir=f"./program_test",
         hub_model_id=f"{model_name}-taisc",
         remove_unused_columns=False,
@@ -332,13 +304,6 @@ if __name__ == "__main__" :
         train_dataset=train_smolvlm2,
     )
     
-    # trainer = Trainer(
-    # model=model,
-    # args=training_args,
-    # data_collator=collate_fn,
-    # train_dataset=train_smolvlm2,
-    # )
-
     trainer.train()
 
     processor_save_path = get_latest_checkpoint(training_args.output_dir)
@@ -347,5 +312,21 @@ if __name__ == "__main__" :
     print(f"Processor 已儲存至：{processor_save_path}")
 
     # trainer.push_to_hub()
+    
+    # add gpt's advice
+    out_dir = Path(training_args.output_dir) / "final"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    if getattr(model.base_model, "save_pretrained", None):
+        model.base_model.save_pretrained(out_dir/"adapter", safe_serialization=True)
+    
+    clf_sd = {k:v for k,v in model.state_dict().items() if k.startswith("classifier.")}
+    save_file(clf_sd, out_dir/"classifier.safetensors")
+    
+    merged = model.base_model.merge_and_unload()
+    model.base_model = merged
+    save_file(model.state_dict(), out_dir/"model.safetensors")
+    print("Saved adapter/, classifier.safetensors, model.safetensors to:", out_dir)
+
 
 __all__ = ["SmolVLMWithClassifier"]

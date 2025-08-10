@@ -5,7 +5,8 @@ from safetensors.torch import load_file
 from transformers import AutoProcessor
 # from smolvlm2_video_FT_clean import SmolVLMWithClassifier, get_latest_checkpoint # original
 # from smolvlm2_video_FT_strategy3 import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
-from smolvlm2_video_FT_full import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
+# from smolvlm2_video_FT_full import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
+from smolvlm2_video_FT_lora import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
 from tqdm import tqdm
 import argparse
 import datetime
@@ -17,6 +18,8 @@ def parse_args():
     parser.add_argument("--dataset", type=str, required=True, help="Path to the dataset directory")
     parser.add_argument("--epoch", type=str, default=3, required=True, help="fine-tune epoch number")
     parser.add_argument("--model-path", type=str, help="Path to the model directory")
+    parser.add_argument("--qlora", action="store_true", help="Use QLoRA or not, set default to False")
+    parser.add_argument("--smol", action="store_true", help="Use 500M or 2.2B model, set default to True(500M)")
     return parser.parse_args()
 
 args = parse_args()
@@ -28,7 +31,11 @@ model_path = get_latest_checkpoint(args.model_path)
 # model_path = "C:\\Python_workspace\\TAISC\\code\\smollm-main\\strategy3 model\\SmolVLM2-500M-Video-Instruct-taisc(latest-cls-strategy3-3epoch)\\checkpoint-36" # strategy3
 # model_path = "C:\\Python_workspace\\TAISC\\code\\smollm-main\\SmolVLM2-500M-Video-Instruct-taisc(latest-cls-strategy3-2epoch-complete)-road\\checkpoint-46" # strategy3
 
-model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct"
+model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct" if args.smol else "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
+# print(args.smol)
+# print(model_id)
+
+# assert False
 
 # 測試用影片與文字（請根據需要替換）
 # video_path = "C:\\Python_workspace\\TAISC\\dataset\\freeway_video\\smolvlm2\\train\\freeway_0000.mp4"
@@ -45,7 +52,7 @@ output_csv = ".\\program_test\\full_{}_{}epoch_infer_results_{}.csv".format(args
 text_prompt = "Is a vehicle collision likely to happen within 1 to 2 seconds?(0: No, 1: Yes)"
 
 # === 模型初始化並讀取權重 ===
-model = SmolVLMWithClassifier(model_id)
+model = SmolVLMWithClassifier(model_id, USE_QLORA=args.qlora, infer=True)
 state_dict = load_file(os.path.join(model_path, "model.safetensors"))
 model.load_state_dict(state_dict)
 model.to("cuda").eval()
