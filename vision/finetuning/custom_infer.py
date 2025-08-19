@@ -5,8 +5,7 @@ from safetensors.torch import load_file
 from transformers import AutoProcessor
 # from smolvlm2_video_FT_clean import SmolVLMWithClassifier, get_latest_checkpoint # original
 # from smolvlm2_video_FT_strategy3 import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
-# from smolvlm2_video_FT_full import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
-from smolvlm2_video_FT_lora import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
+from smolvlm2_video_FT_full import SmolVLMWithClassifier, get_latest_checkpoint # strategy3
 from tqdm import tqdm
 import argparse
 import datetime
@@ -32,10 +31,6 @@ model_path = get_latest_checkpoint(args.model_path)
 # model_path = "C:\\Python_workspace\\TAISC\\code\\smollm-main\\SmolVLM2-500M-Video-Instruct-taisc(latest-cls-strategy3-2epoch-complete)-road\\checkpoint-46" # strategy3
 
 model_id = "HuggingFaceTB/SmolVLM2-500M-Video-Instruct" if args.smol else "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
-# print(args.smol)
-# print(model_id)
-
-# assert False
 
 # 測試用影片與文字（請根據需要替換）
 # video_path = "C:\\Python_workspace\\TAISC\\dataset\\freeway_video\\smolvlm2\\train\\freeway_0000.mp4"
