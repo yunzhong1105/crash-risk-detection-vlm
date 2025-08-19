@@ -20,9 +20,13 @@ class SmolVLMWithClassifier(nn.Module):
         
         if USE_QLORA :
             lora_config = LoraConfig(
-                r=4,
-                lora_alpha=16,
-                lora_dropout=0.05,
+                # r=4,
+                # lora_alpha=16,
+                # lora_dropout=0.05,
+                r=32,
+                lora_alpha=64,
+                lora_dropout=0.1,
+                
                 target_modules=['down_proj','o_proj','k_proj','q_proj','gate_proj','up_proj','v_proj'],
                 use_dora=False if USE_QLORA else True,
                 init_lora_weights="gaussian"
@@ -245,6 +249,12 @@ if __name__ == "__main__" :
 
     if USE_QLORA or USE_LORA:
         model = SmolVLMWithClassifier(model_id=model_id, USE_QLORA=USE_QLORA)  # 跳過from_pretrained
+        
+        # with open("model_params.txt", "w", encoding="utf-8") as f:
+        #     for name, param in model.named_parameters():
+        #         f.write(f"{name:80s}  requires_grad={param.requires_grad}\n")
+        
+        # assert False
 
     peak_mem = torch.cuda.max_memory_allocated()
     print(f"The model as is is holding: {peak_mem / 1024**3:.2f} of GPU RAM")
@@ -276,26 +286,50 @@ if __name__ == "__main__" :
         image_token_id=image_token_id
     )
     
+    # training_args = TrainingArguments(
+    #     num_train_epochs=args.epoch,
+    #     per_device_train_batch_size=1,
+    #     gradient_accumulation_steps=8,
+    #     warmup_steps=50,
+    #     learning_rate=1e-5,
+    #     weight_decay=0.01,
+    #     logging_steps=5,
+    #     save_strategy="steps",
+    #     save_steps=250,
+    #     save_total_limit=1,
+    #     optim="adamw_torch",
+    #     bf16=True,
+    #     output_dir=f"./program_test",
+    #     hub_model_id=f"{model_name}-taisc",
+    #     remove_unused_columns=False,
+    #     report_to="tensorboard",
+    #     dataloader_pin_memory=False,
+    #     max_grad_norm=1.0,
+    # )
+    
     training_args = TrainingArguments(
         num_train_epochs=args.epoch,
         per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
-        warmup_steps=50,
-        learning_rate=1e-5,
-        weight_decay=0.01,
-        logging_steps=5,
+        learning_rate=5e-5,
+        weight_decay=0.0,
+        warmup_ratio=0.1,
+        lr_scheduler_type="cosine",
+        max_grad_norm=0.5,
+        optim="paged_adamw_8bit",    # 量化建議用 paged 8-bit
+        bf16=True,
+        gradient_checkpointing=True,
+        logging_steps=10,
+        evaluation_strategy="steps",
+        eval_steps=250,
         save_strategy="steps",
         save_steps=250,
-        save_total_limit=1,
-        optim="adamw_torch",
-        bf16=True,
-        output_dir=f"./program_test",
-        hub_model_id=f"{model_name}-taisc",
-        remove_unused_columns=False,
+        save_total_limit=2,
         report_to="tensorboard",
-        dataloader_pin_memory=False,
-        max_grad_norm=1.0,
+        remove_unused_columns=False,
+        dataloader_pin_memory=False
     )
+
 
     trainer = BinaryClassificationTrainer(
         model=model,

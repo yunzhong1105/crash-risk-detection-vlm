@@ -181,6 +181,7 @@ eventsAnalysis.ipynb
 img2mp4.py
 original_README.md
 unittest.bat
+model_params.txt
 
 # early version code
 vision/finetuning/claude_v11.py
